@@ -55,13 +55,13 @@ Run json-server to serve our API:
 ```sh
 npm run server
 ```
-This will run the server on `http://localhost:4000`. Open `http://localhost:4000/users` in your browser and review the existing data structure.
+This will run the server on `http://localhost:6001`. Open `http://localhost:6001/users` in your browser and review the existing data structure.
 
 Now, start the React app:
 ```sh
 npm run dev
 ```
-Visit `http://localhost:3000`—you should see the application running.
+Visit `http://localhost:5173`—you should see the application running.
 Take a moment to familiarize yourself with the application and components.
 
 #### Step 3: Testing Users Display - Folder Creation
@@ -69,10 +69,11 @@ Before the functionality of the code is complete, we want to first build out our
 
 **Folder Structure:**
 ```
-└── __tests__
+src/
+└── __tests__/
     ├── App.test.jsx
     ├── setup.jsx
-    └── test_suites
+    └── test_suites/
         ├── ChangeStatus.test.jsx
         └── DisplayUsers.test.jsx
 ```
@@ -85,24 +86,55 @@ import { cleanup } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 import fetch from 'node-fetch';
 
-global.fetch = fetch;
+global.fetch = fetch
 
-global.baseUsers = [...];
+global.baseUsers = [
+    {
+      "id": 1,
+      "name": "theGrey",
+      "profile_image": "./images/theGrey.jpg",
+      "status": "Online"
+    },
+    {
+      "id": 2,
+      "name": "fr0d0",
+      "profile_image": "./images/fr0d0.jpg",
+      "status": "Away"
+    },
+    {
+      "id": 3,
+      "name": "bor0mir123",
+      "profile_image": "./images/bor0mir123.jpg",
+      "status": "Offline"
+    },
+    {
+      "id": 4,
+      "name": "elf-friend",
+      "profile_image": "./images/elf-friend.jpg",
+      "status": "Online"
+    },
+    {
+      "id": 5,
+      "name": "legolas",
+      "profile_image": "./images/legolas.jpg",
+      "status": "Online"
+    }
+]
 
 global.setFetchResponse = (val) => {
     global.fetch = vi.fn(() => Promise.resolve({
         json: () => Promise.resolve(val),
         ok: true,
         status: 200
-    }));
+    }))
 }
 
 afterEach(() => {
     cleanup();
-});
+})
 ```
 
-Update `app.test.jsx`:
+Update `App.test.jsx`:
 ```js
 import './test_suites/DisplayUsers.test'
 import './test_suites/ChangeStatus.test'
@@ -111,19 +143,31 @@ import './test_suites/ChangeStatus.test'
 #### Step 5: Testing Users Display - Testing
 Update `DisplayUsers.test.jsx`:
 ```js
-import React from 'react';
+import React from 'react';	
 import { render } from '@testing-library/react';
 import App from '../../components/App';
 import '@testing-library/jest-dom';
 
 describe('Our app will', () => {
   test('displays all users on startup', async () => {
-    global.setFetchResponse(global.baseUsers);
+    global.setFetchResponse(global.baseUsers)
     let { findAllByTestId } = render(<App />);
     const userItems = await findAllByTestId('user-item');
     expect(userItems).toHaveLength(global.baseUsers.length);
+
+    const userNames = userItems.map((item) => item.querySelector('h4').textContent);
+    const baseUsersNames = global.baseUsers.map((user) => user.name);
+    expect(userNames).toEqual(baseUsersNames);
+
+    const userProfileImage = userItems.map((item) => item.querySelector('.inline-block-child.profile-image').src.split('/')[-1]);
+    const baseUserProfileImages = global.baseUsers.map((user) => user.profile_image.split('/')[-1]);
+    expect(userProfileImage).toEqual(baseUserProfileImages);
+
+    const userStatus = userItems.map((item) => item.querySelector('p').textContent);
+    const baseUserStatus = global.baseUsers.map((user) => user.status);
+    expect(userStatus).toEqual(baseUserStatus);
   });
-});
+})
 ```
 
 #### Step 6: Testing Users Display - Build out functionality
@@ -132,16 +176,24 @@ Update `App.jsx`:
 import { useState, useEffect } from 'react'
 import UserList from './UserList'
 
+
 function App() {
   const [users, setUsers] = useState([])
-  useEffect(() => {
+
+  useEffect(()=>{
     fetch('http://localhost:6001/users')
-      .then(r => r.json())
-      .then(data => setUsers(data))
-  }, [])
-  return (<div><UserList users={users} /></div>)
+    .then(r => r.json())
+    .then(data => setUsers(data))
+  },[])
+
+  return (
+    <div>
+      <UserList users={users}/>
+    </div>
+  )
 }
-export default App;
+
+export default App
 ```
 
 Commit changes:
@@ -159,39 +211,109 @@ import '@testing-library/jest-dom';
 
 describe('Our App will', () => {
     test('edit the status of the user', async () => {
-        global.setFetchResponse(global.baseUsers);
-        const { findAllByTestId } = render(<App />);
-        const statusButtons = await findAllByTestId('status-item');
-        global.setFetchResponse({...});
-        fireEvent.click(statusButtons[0]);
-        expect(fetch).toHaveBeenCalledWith(...);
+        global.setFetchResponse(global.baseUsers)
+        const { findAllByTestId } = render(<App />)
+        const statusButtons = await findAllByTestId('status-item')
+        global.setFetchResponse({id: 1, name: 'theGrey', profile_image: './images/theGrey.jpg', "status": "Offline"})
+        fireEvent.click(statusButtons[0])
+        expect(fetch).toHaveBeenCalledWith("http://localhost:6001/users/1", {
+            method: "patch",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({id: 1, name: 'theGrey', profile_image: './images/theGrey.jpg', "status": "Offline"}),
+        })
+        const profiles = await findAllByTestId('user-item')
+        const changedProfile = profiles[0]
+        const status = changedProfile.querySelector("p").textContent
+        await waitFor(() => {
+            expect(status).toBe("Offline");
+        });
     });
-});
+})
 ```
 
 #### Step 8: Testing Status Editing - Build out functionality
 Update `App.jsx`:
 ```js
-function changeStatus(updatedUser) {
-  fetch(`http://localhost:6001/users/${updatedUser.id}`, {...})
+import { useState, useEffect } from 'react'
+import UserList from './UserList'
+
+
+function App() {
+  const [users, setUsers] = useState([])
+
+  useEffect(()=>{
+    fetch('http://localhost:6001/users')
     .then(r => r.json())
-    .then(data => {...})
+    .then(data => setUsers(data))
+  },[])
+
+  function changeStatus(updatedUser){
+    fetch(`http://localhost:6001/users/${updatedUser.id}`,{
+      method: "patch",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedUser),
+      }
+    )
+    .then(r => r.json())
+    .then(data => {
+      setUsers(users.map((user => {
+        if(user.id == updatedUser.id){
+          return data
+        }
+        return user
+      })))
+    })
+  }
+
+  return (
+    <div>
+      <UserList users={users} changeStatus={changeStatus}/>
+    </div>
+  )
 }
+
+export default App
 ```
 Update `UserList.jsx`:
 ```js
-function UserList({ users, changeStatus }) {
-  function onClick(user) {...}
+import React, { useState } from "react";
+
+function UserList({users,changeStatus}) {
+  function handleClick(user){
+    let updatedUser = {...user}
+    if (user.status == "Online"){
+        updatedUser.status = "Offline"
+    }
+    else{
+        updatedUser.status = "Online"
+    }
+    changeStatus(updatedUser)
+    console.log(updatedUser)
+  }
+  
   return (
     <ul>
-      {users.map((user) => (
-        <div data-testid="user-item" key={user.id}>
-          <p data-testid="status-item" onClick={() => onClick(user)}>{user.status}</p>
-        </div>
-      ))}
+      {
+        users.map((user)=>(
+            <div data-testid="user-item" key={user.id}>
+                <div>
+                    <img className="inline-block-child profile-image" src={user.profile_image} alt={"user image"} />
+                    <h4 className="inline-block-child">{user.name}</h4>
+                    <h2 className="inline-block-child">{"|"}</h2>
+                    <img className="active-image inline-block-child" src = {user.status=="Online" ? "./Pan_Green_Circle.png":"./Red-Circle-Transparent.png"}/>
+                    <p data-testid="status-item" className="inline-block-child" onClick={() => handleClick(user)}>{user.status}</p>
+                </div>
+            </div>
+        ))
+      }
     </ul>
   );
 }
+
 export default UserList;
 ```
 
