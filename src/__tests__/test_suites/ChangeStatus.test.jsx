@@ -11,7 +11,7 @@ describe('Our App will', () => {
         global.setFetchResponse({id: 1, name: 'theGrey', profile_image: './images/theGrey.jpg', "status": "Offline"})
         fireEvent.click(statusButtons[0])
         expect(fetch).toHaveBeenCalledWith("http://localhost:6001/users/1", {
-            method: "patch",
+            method: "PATCH",
             headers: {
                 "Content-Type": "application/json",
             },
