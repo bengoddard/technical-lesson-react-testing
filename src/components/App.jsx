@@ -11,9 +11,29 @@ function App() {
     .then(data => setUsers(data))
   }, [])
 
+  function changeStatus(updatedUser){
+    fetch(`http://localhost:6001/users/${updatedUser.id}`,{
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(updatedUser),
+      }
+    )
+    .then(r => r.json())
+    .then(data => {
+      setUsers(users.map((user => {
+        if(user.id == updatedUser.id){
+          return data
+        }
+        return user
+      })))
+    })
+  }
+
   return (
     <div>
-      <UserList users={users}/>
+      <UserList users={users} changeStatus={changeStatus}/>
     </div>
   )
 }
